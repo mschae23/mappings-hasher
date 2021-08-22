@@ -1,0 +1,37 @@
+name: "Generate and publish (from version)"
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Path to the ZIP file containing the version file"
+        required: true
+
+jobs:
+  generate-and-publish:
+    runs-on: ubuntu-latest
+    container:
+      image: openjdk:16-jdk
+      options: --user root
+    steps:
+      - name: Cache build and application cache
+        uses: actions/cache@v2
+        with:
+          path: |
+            ./build
+            ./cache
+          key: hashed-mojmap
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Validate Gradle wrapper
+        uses: gradle/wrapper-validation-action@v1
+      - name: Download and unzip version ZIP file
+        run: |
+          wget ${{ github.event.inputs.version }}
+          FILE=basename ${{ github.event.inputs.version }}
+          unzip $FILE
+      - name: Generate and publish mappings
+        run: ./gradlew publish -PminecraftVersion="$FILE/$FILE.json" --stacktrace
+        env:
+          MAVEN_URL: https://maven.pkg.github.com/mschae23/mappings-hasher
+          MAVEN_USERNAME: ${{ github.actor }}
+          MAVEN_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
