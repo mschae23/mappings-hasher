@@ -5,6 +5,9 @@ on:
       version:
         description: "Path to the ZIP file containing the version file"
         required: true
+      versionfile:
+        description: "Name of the ZIP file"
+        required: true
 
 jobs:
   generate-and-publish:
@@ -30,10 +33,9 @@ jobs:
           args: ${{ github.event.inputs.version }}
       - name: Unzip version ZIP file
         run: |
-          FILE=basename ${{ github.event.inputs.version }}
-          unzip $FILE
+          unzip ${{ github.event.inputs.versionfile }}.zip
       - name: Generate and publish mappings
-        run: ./gradlew publish -PminecraftVersion="${FILE}/${FILE}.json" --stacktrace
+        run: ./gradlew publish -PminecraftVersion="${{ github.event.inputs.versionfile }}/${{ github.event.inputs.versionfile }}.json" --stacktrace
         env:
           MAVEN_URL: https://maven.pkg.github.com/mschae23/mappings-hasher
           MAVEN_USERNAME: ${{ github.actor }}
