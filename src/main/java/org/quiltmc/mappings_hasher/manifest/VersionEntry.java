@@ -1,8 +1,7 @@
 package org.quiltmc.mappings_hasher.manifest;
 
-import org.quiltmc.json5.JsonReader;
-
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -14,28 +13,36 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.quiltmc.json5.JsonReader;
 
 public class VersionEntry implements IWebResource {
     private String id;
     private ReleaseType type;
     private URL url;
     private String sha1;
+    private File file;
 
     private Map<String, DownloadEntry> downloads;
     private List<LibraryEntry> libraries;
 
-    private VersionEntry() { }
+    private VersionEntry() {
+    }
+
+    public static VersionEntry fromJson(JsonReader reader, String id, File file) throws IOException {
+        VersionEntry version = new VersionEntry();
+        version.file = file;
+        version.parseJson(reader, id);
+        return version;
+    }
 
     public static VersionEntry fromJson(JsonReader reader) throws IOException {
-        VersionEntry version = new VersionEntry();
-        version.parseJson(reader);
-        return version;
+        return fromJson(reader, null, null);
     }
 
     public void resolve() throws IOException {
         InputStream versionReader = Files.newInputStream(this.getOrDownload().toPath());
         JsonReader versionJson = JsonReader.json(new BufferedReader(new InputStreamReader(versionReader)));
-        this.parseJson(versionJson);
+        this.parseJson(versionJson, null);
         versionReader.close();
     }
 
@@ -55,25 +62,25 @@ public class VersionEntry implements IWebResource {
         return libraries;
     }
 
-    private void parseJson(JsonReader reader) throws IOException {
+    private void parseJson(JsonReader reader, String id) throws IOException {
         reader.beginObject();
+
         while (reader.hasNext()) {
-            String name = reader.nextName();
-            switch (name) {
+            switch (reader.nextName()) {
                 case "id":
-                    id = reader.nextString();
+                    this.id = reader.nextString();
                     break;
                 case "downloads":
-                    parseDownloads(reader);
+                    parseDownloads(reader, id == null ? this.id : id);
                     break;
                 case "type":
                     type = ReleaseType.fromString(reader.nextString());
                     break;
                 case "url":
-                    url =  new URL(reader.nextString());
+                    url = new URL(reader.nextString());
                     break;
                 case "sha1":
-                    sha1 =  reader.nextString();
+                    sha1 = reader.nextString();
                     break;
                 case "libraries":
                     parseLibraries(reader);
@@ -82,10 +89,11 @@ public class VersionEntry implements IWebResource {
                     reader.skipValue();
             }
         }
+
         reader.endObject();
     }
 
-    private void parseDownloads(JsonReader reader) throws IOException {
+    private void parseDownloads(JsonReader reader, String id) throws IOException {
         if (downloads == null) {
             downloads = new HashMap<>();
         }
@@ -96,8 +104,7 @@ public class VersionEntry implements IWebResource {
             String filename;
             if (downloadName.endsWith("_mappings")) {
                 filename = downloadName + ".txt";
-            }
-            else {
+            } else {
                 filename = downloadName + ".jar";
             }
             filename = filename.substring(filename.lastIndexOf('/') + 1);
@@ -135,5 +142,13 @@ public class VersionEntry implements IWebResource {
     @Override
     public Path path() {
         return Paths.get("versions", id, id + ".json");
+    }
+
+    @Override
+    public File getOrDownload() throws IOException {
+        if (this.file != null)
+            return this.file;
+
+        return IWebResource.super.getOrDownload();
     }
 }

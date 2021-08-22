@@ -1,22 +1,26 @@
 package org.quiltmc.mappings_hasher;
 
-import net.fabricmc.lorenztiny.TinyMappingsWriter;
-import org.cadixdev.lorenz.MappingSet;
-import org.cadixdev.lorenz.io.TextMappingsReader;
-import org.cadixdev.lorenz.io.proguard.ProGuardReader;
-import org.quiltmc.mappings_hasher.manifest.LibraryEntry;
-import org.quiltmc.mappings_hasher.manifest.VersionEntry;
-import org.quiltmc.mappings_hasher.manifest.VersionManifest;
-import org.quiltmc.json5.JsonReader;
-
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.jar.JarFile;
-import java.util.jar.JarOutputStream;
-import java.util.zip.ZipEntry;
+import net.fabricmc.lorenztiny.TinyMappingsWriter;
+import org.cadixdev.lorenz.MappingSet;
+import org.cadixdev.lorenz.io.TextMappingsReader;
+import org.cadixdev.lorenz.io.proguard.ProGuardReader;
+import org.quiltmc.json5.JsonReader;
+import org.quiltmc.mappings_hasher.manifest.LibraryEntry;
+import org.quiltmc.mappings_hasher.manifest.VersionEntry;
+import org.quiltmc.mappings_hasher.manifest.VersionManifest;
 
 public class Main {
     public static void main(String[] args) throws IOException {
@@ -34,8 +38,44 @@ public class Main {
         System.out.println("Reading version...");
         VersionEntry version = manifest.versions().get(args[0]);
         if (version == null) {
-            System.out.println("Unknown version: " + args[0]);
-            return;
+            System.out.println("Unknown version (version manifest): " + args[0]);
+
+            String id = null;
+
+            try (JsonReader typeReader = JsonReader.json(new BufferedReader(new FileReader(args[0])))) {
+                System.out.println("Trying to read version file...");
+
+                typeReader.beginObject();
+
+                while (typeReader.hasNext()) {
+                    if ("id".equals(typeReader.nextName())) {
+                        id = typeReader.nextString();
+                        break;
+                    }
+
+                    typeReader.skipValue();
+                }
+
+                if (id == null) {
+                    System.out.println("Could not find ID in version file.");
+                    return;
+                }
+
+                try (JsonReader versionJson = JsonReader.json(new BufferedReader(new FileReader(args[0])))) {
+                    version = VersionEntry.fromJson(versionJson, id, new File(args[0]));
+                } catch (IOException e) {
+                    System.out.println("IO exception while trying to read version file: " + e.getLocalizedMessage());
+                    return;
+                } catch (IllegalStateException e) {
+                    System.out.println("JSON exception while trying to read version file: " + e.getLocalizedMessage());
+                    return;
+                }
+            } catch (IllegalStateException e) {
+                System.out.println("JSON exception while trying to read type in version file: " + e.getLocalizedMessage());
+                return;
+            }
+
+            System.out.println("Found version: " + id);
         }
 
         version.resolve();
