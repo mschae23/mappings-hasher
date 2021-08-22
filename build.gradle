@@ -38,9 +38,14 @@ dependencies {
 
 tasks.getByName("run").setArgsString(minecraftVersion)
 
+String minecraftVersion2 = minecraftVersion.toString().contains('/') ?
+        minecraftVersion.toString().substring(minecraftVersion.toString().lastIndexOf('/') + 1)
+                .replaceAll('1_(\\d*)', '1.$1')
+        : minecraftVersion
+
 task mappingsJar(type: Jar) {
     dependsOn run
-    from "mappings/hashed-${minecraftVersion}.tiny"
+    from "mappings/hashed-${minecraftVersion2}.tiny"
     eachFile {
         setName("hashed/mappings.tiny")
     }
@@ -51,7 +56,7 @@ publishing {
         maven(MavenPublication) {
             groupId = 'org.quiltmc'
             artifactId = 'hashed-mojmap'
-            version = minecraftVersion
+            version = minecraftVersion2
             artifacts = [mappingsJar]
         }
     }
