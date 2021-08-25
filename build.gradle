@@ -40,7 +40,7 @@ tasks.getByName("run").setArgsString(minecraftVersion)
 
 String minecraftVersion2 = minecraftVersion.toString().contains('/') ?
         minecraftVersion.toString().substring(minecraftVersion.toString().lastIndexOf('/') + 1)
-                .replaceAll('1_(\\d*)', '1.$1')
+                .replaceAll('1_(\\d*)', '1.$1').replace('.json', '')
         : minecraftVersion
 
 task mappingsJar(type: Jar) {
